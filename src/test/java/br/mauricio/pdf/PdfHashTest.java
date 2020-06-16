@@ -9,13 +9,22 @@ import java.math.BigInteger;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 import java.util.Calendar;
 
 import org.apache.commons.io.IOUtils;
 import org.junit.Test;
 import org.junit.jupiter.api.Order;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.ResultActions;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.itextpdf.text.DocumentException;
 import com.itextpdf.text.Rectangle;
 import com.itextpdf.text.pdf.PdfDate;
@@ -31,10 +40,18 @@ import com.itextpdf.text.pdf.security.ExternalBlankSignatureContainer;
 import com.itextpdf.text.pdf.security.ExternalSignatureContainer;
 import com.itextpdf.text.pdf.security.MakeSignature;
 
+import br.mauricio.pdf.model.BirdIDHash;
+import br.mauricio.pdf.model.BirdIDSign;
+
 @SpringBootTest
 public class PdfHashTest {
 
 	private static final String SIGN_FIELD = "assinatura";
+
+	@Autowired
+	private ObjectMapper objectMapper;
+
+	private MockMvc mockMvc;
 
 	@Test
 	@Order(1)
@@ -71,7 +88,18 @@ public class PdfHashTest {
 			signature.setFormFlattening(true);
 			signature.close();
 			reader.close();
-			System.out.println(encode);
+		    BirdIDSign sign = new BirdIDSign();
+		    BirdIDHash hash = new BirdIDHash();
+		    hash.setAlias("teste");
+		    hash.setId(1);
+		    hash.setHash(encode);
+		    sign.setInclude_chain(true);
+		    sign.setCertificate_alias("alias_certificado");
+		    sign.setHashes(Arrays.asList(hash));
+		    String json = objectMapper.writeValueAsString(sign);
+		    ResultActions resultActions = this.mockMvc.perform(post("https://api.birdid.com.br/v0/oauth/signature").contentType(MediaType.APPLICATION_JSON).content(json));
+		    MvcResult mvcReturn = resultActions.andReturn();
+		    System.out.println(mvcReturn.getResponse().getContentAsString());
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
